@@ -31,20 +31,23 @@ const navItems = [
 
 export default function Sidebar() {
   const pathname = usePathname();
+  const isHome = pathname === "/";
   const isCaseStudy = pathname.startsWith("/case-study");
   const isUnityCase = pathname.startsWith("/case-study");
 
   useEffect(() => {
+    document.body.classList.toggle("home-no-rail", isHome);
     document.body.classList.toggle("case-study-mode", isCaseStudy);
     document.body.classList.toggle("case-study-no-rail", isUnityCase);
 
     return () => {
+      document.body.classList.remove("home-no-rail");
       document.body.classList.remove("case-study-mode");
       document.body.classList.remove("case-study-no-rail");
     };
-  }, [isUnityCase, isCaseStudy]);
+  }, [isHome, isUnityCase, isCaseStudy]);
 
-  if (isCaseStudy) {
+  if (isCaseStudy || isHome) {
     return null;
   }
 

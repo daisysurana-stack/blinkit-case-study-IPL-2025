@@ -1,10 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
 
-function WorkBadge({ children }: { children: React.ReactNode }) {
-  return <span className="blinkit-entry-card__tag">[{children}]</span>;
-}
-
 function EntryPhone({
   src,
   alt,
@@ -55,7 +51,6 @@ export default function BlinkitEntryCard() {
       </div>
 
       <div className="blinkit-entry-card__content">
-        <p className="blinkit-entry-card__eyebrow">Selected Work</p>
         <Image
           src="/assets/Blinkit-logo.png"
           alt="Blinkit"
@@ -64,11 +59,15 @@ export default function BlinkitEntryCard() {
           className="blinkit-entry-card__logo"
         />
         <h2 className="blinkit-entry-card__title">Designing a Scalable IPL Engagement System</h2>
-        <div className="blinkit-entry-card__tags" aria-label="Project tags">
-          <WorkBadge>Visual</WorkBadge>
-          <WorkBadge>Motion</WorkBadge>
-          <WorkBadge>Product Thinking</WorkBadge>
-        </div>
+        <p className="blinkit-entry-card__summary">
+          A modular IPL case study across merchandising, gamified engagement,
+          and brand partnerships, designed to scale across match-day moments
+          without losing Blinkit&apos;s utility-first feel.
+        </p>
+        <span className="blinkit-entry-card__cta">
+          View case study
+          <span aria-hidden="true">↗</span>
+        </span>
       </div>
     </Link>
   );

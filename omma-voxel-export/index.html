@@ -1,0 +1,699 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Arbor.</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Instrument+Sans:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --sky-top: #a8abbc;
+      --sky-mid: #737d9f;
+      --sky-bottom: #283b72;
+      --hero-accent: #e2c8a0;
+      --hero-text: rgba(255, 255, 255, 0.96);
+      --hero-muted: rgba(255, 255, 255, 0.56);
+      --hero-line: rgba(255, 255, 255, 0.08);
+      --hero-panel: rgba(255, 255, 255, 0.08);
+      --hero-panel-strong: rgba(255, 255, 255, 0.16);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      outline: none !important;
+    }
+
+    html {
+      min-height: 100%;
+      background:
+        radial-gradient(circle at 70% 22%, rgba(255, 255, 255, 0.10), transparent 0 26%),
+        linear-gradient(180deg, var(--sky-top) 0%, var(--sky-mid) 48%, var(--sky-bottom) 100%);
+    }
+
+    body {
+      min-height: 100%;
+      overflow-x: hidden;
+      color: var(--hero-text);
+      background: transparent;
+    }
+
+    canvas {
+      display: block;
+      outline: none !important;
+    }
+
+    .error {
+      color: #ef4444;
+      padding: 20px;
+      font-family: monospace;
+      white-space: pre-wrap;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 1320px;
+      margin: 0 auto;
+      padding: 0 56px;
+    }
+
+    .page-shell {
+      position: relative;
+      min-height: 100vh;
+    }
+
+    .navbar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 30;
+      height: 72px;
+      pointer-events: none;
+    }
+
+    .navbar a,
+    .navbar button {
+      pointer-events: auto;
+    }
+
+    .navbar .container {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 100%;
+    }
+
+    .nav-logo {
+      color: #fff;
+      text-decoration: none;
+      font-family: "Instrument Serif", serif;
+      font-size: 26px;
+      letter-spacing: -0.5px;
+    }
+
+    .nav-logo span {
+      color: var(--hero-accent);
+    }
+
+    .nav-links {
+      list-style: none;
+      display: flex;
+      align-items: center;
+      gap: 36px;
+    }
+
+    .nav-links a {
+      color: rgba(255, 255, 255, 0.62);
+      text-decoration: none;
+      font-family: "Inter", sans-serif;
+      font-size: 13px;
+      font-weight: 400;
+      transition: color 0.25s ease;
+    }
+
+    .nav-links a:hover {
+      color: #fff;
+    }
+
+    .nav-cta {
+      border: none;
+      border-radius: 14px;
+      background: var(--hero-accent);
+      color: #06060a;
+      font-family: "Inter", sans-serif;
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 0.1px;
+      padding: 16px 30px;
+      cursor: pointer;
+      transition: transform 0.2s ease, background 0.25s ease;
+    }
+
+    .nav-cta:hover {
+      transform: translateY(-1px);
+      background: #ebd5b3;
+    }
+
+    .hero-shell {
+      position: relative;
+      height: 220vh;
+    }
+
+    .hero-section {
+      position: sticky;
+      top: 0;
+      width: 100%;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    .hero-scene,
+    #root {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+    }
+
+    .hero-scene {
+      z-index: 0;
+      background: transparent;
+    }
+
+    .hero-inner {
+      position: relative;
+      z-index: 10;
+      height: 100%;
+      pointer-events: none;
+    }
+
+    .hero-inner .container {
+      height: 100%;
+      display: flex;
+      align-items: center;
+    }
+
+    .hero-content {
+      width: min(50%, 560px);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      pointer-events: none;
+      padding-top: 72px;
+    }
+
+    .hero-content button,
+    .hero-content a {
+      pointer-events: auto;
+    }
+
+    .hero-label {
+      display: flex;
+      align-items: center;
+      gap: 18px;
+      margin-bottom: 30px;
+      color: var(--hero-accent);
+      font-family: "Inter", sans-serif;
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+    }
+
+    .hero-label::before {
+      content: "";
+      display: block;
+      width: 54px;
+      height: 1px;
+      background: var(--hero-accent);
+      opacity: 0.95;
+    }
+
+    .hero-h1 {
+      margin-bottom: 20px;
+      color: var(--hero-text);
+      font-family: "Instrument Serif", serif;
+      font-size: clamp(58px, 5vw, 82px);
+      font-weight: 400;
+      line-height: 0.96;
+      letter-spacing: -1.6px;
+    }
+
+    .hero-h1 em {
+      color: var(--hero-accent);
+      font-style: italic;
+    }
+
+    .hero-desc {
+      max-width: 430px;
+      margin-bottom: 42px;
+      color: var(--hero-muted);
+      font-family: "Inter", sans-serif;
+      font-size: 15px;
+      font-weight: 300;
+      line-height: 1.9;
+    }
+
+    .hero-buttons {
+      display: flex;
+      align-items: center;
+      gap: 18px;
+    }
+
+    .btn-primary,
+    .btn-secondary {
+      border-radius: 18px;
+      padding: 20px 32px;
+      font-family: "Inter", sans-serif;
+      font-size: 14px;
+      cursor: pointer;
+      transition: transform 0.2s ease, border-color 0.25s ease, background 0.25s ease, color 0.25s ease;
+    }
+
+    .btn-primary {
+      border: none;
+      background: var(--hero-accent);
+      color: #06060a;
+      font-weight: 600;
+    }
+
+    .btn-primary:hover {
+      background: #ebd5b3;
+      transform: translateY(-2px);
+    }
+
+    .btn-secondary {
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      background: transparent;
+      color: rgba(255, 255, 255, 0.72);
+      font-weight: 400;
+    }
+
+    .btn-secondary:hover {
+      border-color: rgba(255, 255, 255, 0.35);
+      color: #fff;
+      transform: translateY(-2px);
+    }
+
+    .hero-stats {
+      position: relative;
+      display: flex;
+      gap: 52px;
+      margin-top: 72px;
+      padding-top: 34px;
+    }
+
+    .hero-stats::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 240px;
+      height: 1px;
+      background: var(--hero-line);
+    }
+
+    .hero-stat-number {
+      color: #fff;
+      font-family: "Instrument Serif", serif;
+      font-size: 34px;
+      line-height: 1;
+      letter-spacing: -0.5px;
+    }
+
+    .hero-stat-label {
+      margin-top: 12px;
+      color: rgba(255, 255, 255, 0.40);
+      font-family: "Inter", sans-serif;
+      font-size: 12px;
+      line-height: 1.4;
+    }
+
+    #variation-bar {
+      position: absolute;
+      bottom: 36px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 20;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px;
+      border-radius: 18px;
+      background: rgba(255, 255, 255, 0.03);
+      backdrop-filter: blur(12px);
+      pointer-events: auto;
+    }
+
+    #variation-bar .morph-btn {
+      border: none;
+      border-radius: 14px;
+      padding: 14px 26px;
+      background: transparent;
+      color: rgba(255, 255, 255, 0.42);
+      font-family: "Instrument Serif", serif;
+      font-size: 17px;
+      cursor: pointer;
+      transition: color 0.25s ease, background 0.25s ease, transform 0.2s ease;
+      white-space: nowrap;
+    }
+
+    #variation-bar .morph-btn:hover:not(.active) {
+      color: rgba(255, 255, 255, 0.72);
+      transform: translateY(-1px);
+    }
+
+    #variation-bar .morph-btn.active {
+      background: var(--hero-panel-strong);
+      color: #fff;
+    }
+
+    .scroll-story {
+      position: relative;
+      z-index: 5;
+      min-height: 110vh;
+      padding: 16vh 0 12vh;
+      background:
+        linear-gradient(180deg, rgba(13, 19, 43, 0) 0%, rgba(12, 18, 39, 0.45) 22%, rgba(9, 14, 31, 0.72) 100%);
+    }
+
+    .story-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 24px;
+      align-items: start;
+    }
+
+    .story-card {
+      min-height: 220px;
+      padding: 28px;
+      border: 1px solid rgba(255, 255, 255, 0.10);
+      border-radius: 24px;
+      background: rgba(255, 255, 255, 0.06);
+      backdrop-filter: blur(16px);
+      box-shadow: 0 18px 48px rgba(4, 10, 22, 0.18);
+    }
+
+    .story-card-label {
+      margin-bottom: 18px;
+      color: var(--hero-accent);
+      font-family: "Inter", sans-serif;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+    }
+
+    .story-card h2 {
+      margin-bottom: 16px;
+      color: #fff;
+      font-family: "Instrument Serif", serif;
+      font-size: 34px;
+      font-weight: 400;
+      line-height: 1;
+      letter-spacing: -0.8px;
+    }
+
+    .story-card p {
+      color: var(--hero-muted);
+      font-family: "Inter", sans-serif;
+      font-size: 15px;
+      line-height: 1.8;
+    }
+
+    #ui-panel,
+    #fps-counter,
+    .toggle-btn {
+      display: none !important;
+    }
+
+    @keyframes fadeUp {
+      from {
+        opacity: 0;
+        transform: translateY(30px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+      }
+      to {
+        opacity: 1;
+      }
+    }
+
+    .anim-1 { animation: fadeUp 0.9s cubic-bezier(0.16, 1, 0.3, 1) 0.2s both; }
+    .anim-2 { animation: fadeUp 0.9s cubic-bezier(0.16, 1, 0.3, 1) 0.35s both; }
+    .anim-3 { animation: fadeUp 0.9s cubic-bezier(0.16, 1, 0.3, 1) 0.5s both; }
+    .anim-4 { animation: fadeUp 0.9s cubic-bezier(0.16, 1, 0.3, 1) 0.65s both; }
+    .anim-5 { animation: fadeUp 0.9s cubic-bezier(0.16, 1, 0.3, 1) 0.8s both; }
+    .nav-anim { animation: fadeIn 0.8s ease 0.1s both; }
+
+    @media (max-width: 1100px) {
+      .container {
+        padding: 0 28px;
+      }
+
+      .hero-content {
+        width: min(58%, 560px);
+      }
+
+      .story-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 900px) {
+      .navbar {
+        height: 60px;
+      }
+
+      .nav-links {
+        display: none;
+      }
+
+      .hero-inner .container {
+        align-items: flex-end;
+        padding-bottom: 180px;
+      }
+
+      .hero-content {
+        width: 100%;
+        max-width: 100%;
+        padding-top: 0;
+      }
+
+      .hero-h1 {
+        font-size: 46px;
+      }
+
+      .hero-stats {
+        gap: 24px;
+      }
+
+      .hero-buttons {
+        flex-wrap: wrap;
+      }
+
+      #variation-bar {
+        bottom: 20px;
+        width: calc(100% - 32px);
+        justify-content: center;
+        flex-wrap: wrap;
+      }
+
+      #variation-bar .morph-btn {
+        width: auto;
+        min-width: 148px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="page-shell">
+    <nav class="navbar nav-anim">
+      <div class="container">
+        <a href="javascript:void(0)" class="nav-logo">Arbor<span>.</span></a>
+        <ul class="nav-links">
+          <li><a href="javascript:void(0)">Collection</a></li>
+          <li><a href="javascript:void(0)">Process</a></li>
+          <li><a href="javascript:void(0)">Gallery</a></li>
+          <li><a href="javascript:void(0)">About</a></li>
+        </ul>
+        <button class="nav-cta" type="button">Get Started</button>
+      </div>
+    </nav>
+
+    <div class="hero-shell" data-scroll-track>
+      <section class="hero-section">
+        <div class="hero-scene">
+          <div id="root"></div>
+        </div>
+
+        <div class="hero-inner">
+          <div class="container">
+            <div class="hero-content">
+              <div class="hero-label anim-1">Generative Nature</div>
+              <h1 class="hero-h1 anim-2">Crafting <em>Living</em><br>Digital Landscapes</h1>
+              <p class="hero-desc anim-3">
+                Explore procedurally generated daisies rendered in real-time 3D.
+                Each variation is a unique blend of organic algorithms and artistic vision.
+              </p>
+              <div class="hero-buttons anim-4">
+                <button class="btn-primary" type="button">Explore Collections</button>
+                <button class="btn-secondary" type="button">Watch Reel</button>
+              </div>
+              <div class="hero-stats anim-5">
+                <div>
+                  <div class="hero-stat-number">16</div>
+                  <div class="hero-stat-label">Unique Species</div>
+                </div>
+                <div>
+                  <div class="hero-stat-number">∞</div>
+                  <div class="hero-stat-label">Variations</div>
+                </div>
+                <div>
+                  <div class="hero-stat-number">60fps</div>
+                  <div class="hero-stat-label">Real-time</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div id="variation-bar">
+          <button class="morph-btn active" data-variation="0" type="button">White Daisy</button>
+          <button class="morph-btn" data-variation="1" type="button">Frost Daisy</button>
+          <button class="morph-btn" data-variation="2" type="button">Pink Daisy</button>
+        </div>
+      </section>
+    </div>
+
+    <section class="scroll-story">
+      <div class="container">
+        <div class="story-grid">
+          <article class="story-card">
+            <div class="story-card-label">Scene Intent</div>
+            <h2>Voxel softness</h2>
+            <p>
+              A floating island, soft bloom, and glassy atmosphere keep the scene tactile without losing the lightweight
+              editorial feel of a luxury landing page.
+            </p>
+          </article>
+          <article class="story-card">
+            <div class="story-card-label">Interaction</div>
+            <h2>Cursor impact</h2>
+            <p>
+              Drag to orbit, scroll to travel through the composition, and trigger a bloomy voxel burst on contact.
+              The motion stays calm until you disturb it.
+            </p>
+          </article>
+          <article class="story-card">
+            <div class="story-card-label">Variations</div>
+            <h2>Three moods</h2>
+            <p>
+              White, Frost, and Pink Daisy each rebalance the petals, bloom strength, and atmosphere so the hero feels
+              alive rather than static.
+            </p>
+          </article>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <div id="fps-counter" style="display:none;">-- FPS</div>
+  <div id="ui-panel" style="display:none;">
+    <input type="color" id="mat-color" value="#1a1a2e">
+    <input type="range" id="mat-roughness" min="0" max="1" step="0.01" value="0.60">
+    <span id="val-roughness">0.60</span>
+    <input type="range" id="mat-metalness" min="0" max="1" step="0.01" value="0.50">
+    <span id="val-metalness">0.50</span>
+    <input type="range" id="mat-clearcoat" min="0" max="1" step="0.01" value="1.00">
+    <span id="val-clearcoat">1.00</span>
+    <input type="range" id="mat-cc-rough" min="0" max="1" step="0.01" value="0.35">
+    <span id="val-cc-rough">0.35</span>
+    <input type="range" id="mat-ior" min="1" max="3" step="0.01" value="2.00">
+    <span id="val-ior">2.00</span>
+    <input type="range" id="mat-env" min="0" max="5" step="0.1" value="2.0">
+    <span id="val-env">2.00</span>
+    <input type="range" id="scene-blur" min="0" max="1" step="0.01" value="0.41">
+    <span id="val-blur">0.41</span>
+    <input type="range" id="scene-bg-int" min="0" max="2" step="0.05" value="0.30">
+    <span id="val-bg-int">0.30</span>
+    <input type="range" id="scene-exposure" min="0.1" max="3" step="0.05" value="1.00">
+    <span id="val-exposure">1.00</span>
+    <input type="checkbox" id="shadow-toggle" checked>
+    <span id="shadow-toggle-label">ON</span>
+    <span id="shadow-toggle-track"><span id="shadow-toggle-thumb"></span></span>
+    <input type="range" id="shadow-intensity" min="0" max="1" step="0.01" value="1.00">
+    <span id="val-shadow-intensity">1.00</span>
+    <input type="range" id="shadow-bias" min="-0.01" max="0.01" step="0.0001" value="0.0000">
+    <span id="val-shadow-bias">0.0000</span>
+    <input type="range" id="shadow-normal-bias" min="0" max="0.1" step="0.001" value="0.020">
+    <span id="val-shadow-normal-bias">0.020</span>
+    <input type="range" id="shadow-area" min="4" max="40" step="1" value="32">
+    <span id="val-shadow-area">32.00</span>
+    <input type="range" id="shadow-radius" min="0" max="30" step="0.5" value="5.0">
+    <span id="val-shadow-radius">5.00</span>
+    <input type="range" id="shadow-blur-samples" min="1" max="32" step="1" value="16">
+    <span id="val-shadow-blur-samples">16</span>
+    <input type="range" id="shadow-light-int" min="0" max="5" step="0.1" value="2.0">
+    <span id="val-shadow-light-int">2.00</span>
+    <input type="range" id="shadow-light-x" min="-10" max="10" step="0.1" value="5.0">
+    <span id="val-shadow-light-x">5.00</span>
+    <input type="range" id="shadow-light-y" min="1" max="20" step="0.1" value="10.0">
+    <span id="val-shadow-light-y">10.00</span>
+    <input type="range" id="shadow-light-z" min="-10" max="10" step="0.1" value="4.0">
+    <span id="val-shadow-light-z">4.00</span>
+    <select id="env-select">
+      <option value="studio_small_09_1k">Studio Small</option>
+      <option value="venice_sunset_1k" selected>Venice Sunset</option>
+      <option value="dikhololo_night_1k">Dikhololo Night</option>
+      <option value="mud_road_puresky_1k">Mud Road Sky</option>
+      <option value="kloofendal_48d_partly_cloudy_puresky_1k">Kloofendal</option>
+      <option value="brown_photostudio_01_1k">Brown Studio</option>
+    </select>
+    <input type="checkbox" id="ao-toggle" checked>
+    <span id="ao-toggle-label">ON</span>
+    <span id="ao-toggle-track"><span id="ao-toggle-thumb"></span></span>
+    <span id="ao-status">Checking…</span>
+    <input type="range" id="ao-radius" min="0.01" max="2" step="0.01" value="0.60">
+    <span id="val-ao-radius">0.60</span>
+    <input type="range" id="ao-intensity" min="0.1" max="5" step="0.1" value="1.6">
+    <span id="val-ao-intensity">1.60</span>
+    <input type="range" id="ao-samples" min="4" max="32" step="1" value="24">
+    <span id="val-ao-samples">24.00</span>
+    <input type="checkbox" id="ssr-toggle" checked>
+    <span id="ssr-toggle-label">ON</span>
+    <span id="ssr-toggle-track"><span id="ssr-toggle-thumb"></span></span>
+    <span id="ssr-status">Checking…</span>
+    <input type="range" id="ssr-strength" min="0" max="1" step="0.01" value="0.25">
+    <span id="val-ssr-strength">0.25</span>
+    <input type="range" id="ssr-thickness" min="0.01" max="2" step="0.01" value="0.20">
+    <span id="val-ssr-thickness">0.20</span>
+    <input type="range" id="ssr-max-distance" min="1" max="20" step="0.5" value="6.0">
+    <span id="val-ssr-max-distance">6.00</span>
+    <input type="checkbox" id="bloom-toggle" checked>
+    <span id="bloom-toggle-label">ON</span>
+    <span id="bloom-toggle-track"><span id="bloom-toggle-thumb"></span></span>
+    <span id="bloom-status">Checking…</span>
+    <input type="range" id="bloom-strength" min="0" max="3" step="0.05" value="0.50">
+    <span id="val-bloom-strength">0.50</span>
+    <input type="range" id="bloom-radius" min="0" max="1" step="0.01" value="0.20">
+    <span id="val-bloom-radius">0.20</span>
+    <input type="range" id="bloom-threshold" min="0" max="2" step="0.05" value="0.80">
+    <span id="val-bloom-threshold">0.80</span>
+    <button id="btn-randomize" type="button">Randomize</button>
+    <div id="color-presets">
+      <span class="color-swatch" data-color="#1a1a2e" style="background:#1a1a2e;"></span>
+      <span class="color-swatch" data-color="#4a90d9" style="background:#4a90d9;"></span>
+      <span class="color-swatch" data-color="#d94a4a" style="background:#d94a4a;"></span>
+      <span class="color-swatch" data-color="#3cb371" style="background:#3cb371;"></span>
+      <span class="color-swatch" data-color="#f5c542" style="background:#f5c542;"></span>
+      <span class="color-swatch" data-color="#9b59b6" style="background:#9b59b6;"></span>
+      <span class="color-swatch" data-color="#e8e8e8" style="background:#e8e8e8;"></span>
+      <span class="color-swatch" data-color="#2c2c2c" style="background:#2c2c2c;"></span>
+    </div>
+  </div>
+
+  <script>
+    window.onerror = function(msg, url, line, col, err) {
+      const errorMsg = (err && err.message) || msg || 'Unknown error';
+      const errDiv = document.createElement('div');
+      errDiv.className = 'error';
+      errDiv.textContent = 'Error: ' + errorMsg;
+      document.body.innerHTML = '';
+      document.body.appendChild(errDiv);
+      return true;
+    };
+  </script>
+  <script type="module" src="/scene.js"></script>
+</body>
+</html>
