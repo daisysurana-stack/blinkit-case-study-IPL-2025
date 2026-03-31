@@ -13,6 +13,22 @@ const requestIdle = window.requestIdleCallback ?? ((callback, options = {}) => {
   }, options.timeout ?? 1);
 });
 
+const previousSceneCleanup = window.__homeHeroSceneCleanup;
+if (typeof previousSceneCleanup === 'function') {
+  previousSceneCleanup();
+}
+
+const hardwareThreads = navigator.hardwareConcurrency ?? 4;
+const deviceMemory = navigator.deviceMemory ?? 4;
+const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+const hasCoarsePointer = window.matchMedia('(pointer: coarse)').matches;
+const isCompactViewport = window.innerWidth < 960;
+const shouldUseLiteScene = prefersReducedMotion || hasCoarsePointer || isCompactViewport || hardwareThreads <= 4 || deviceMemory <= 4;
+const sceneMaxPixelRatio = Math.min(window.devicePixelRatio, shouldUseLiteScene ? 1.1 : 1.5);
+const primaryShadowMapSize = shouldUseLiteScene ? 1024 : 2048;
+const secondaryShadowMapSize = shouldUseLiteScene ? 256 : 512;
+const activeFallingLeafCount = shouldUseLiteScene ? 18 : 40;
+
 const variationThemes = [
   {
     top: '#8db5f0',
@@ -43,6 +59,7 @@ const variationThemes = [
 function applyTheme(variation) {
   const theme = variationThemes[variation] || variationThemes[0];
   const root = document.documentElement;
+  const shellBg = new THREE.Color(theme.top).lerp(new THREE.Color('#ffffff'), 0.62);
   root.style.setProperty('--sky-top', theme.top);
   root.style.setProperty('--sky-mid', theme.mid);
   root.style.setProperty('--sky-bottom', theme.bottom);
@@ -51,11 +68,12 @@ function applyTheme(variation) {
   root.style.setProperty('--home-sky-mid', theme.mid);
   root.style.setProperty('--home-sky-bottom', theme.bottom);
   root.style.setProperty('--home-sky-warm', theme.warm);
+  root.style.setProperty('--home-shell-bg', `#${shellBg.getHexString()}`);
   root.style.setProperty('--home-cloud-opacity', variation === 1 ? '0.72' : variation === 2 ? '0.64' : '0.68');
 }
 
 function getThemeClearColor(theme) {
-  return new THREE.Color(theme.mid).lerp(new THREE.Color(theme.top), 0.22);
+  return new THREE.Color(theme.mid).lerp(new THREE.Color(theme.top), 0.12);
 }
 
 function makeCloudTexture() {
@@ -112,16 +130,16 @@ function makeSkyTexture(theme) {
     skyCanvas.height * 0.22,
     skyCanvas.width * 0.26
   );
-  glowGradient.addColorStop(0, 'rgba(255,255,255,0.34)');
-  glowGradient.addColorStop(0.35, 'rgba(255,255,255,0.12)');
+  glowGradient.addColorStop(0, 'rgba(255,255,255,0.2)');
+  glowGradient.addColorStop(0.35, 'rgba(255,255,255,0.08)');
   glowGradient.addColorStop(1, 'rgba(255,255,255,0)');
   ctx.fillStyle = glowGradient;
   ctx.fillRect(0, 0, skyCanvas.width, skyCanvas.height);
 
   const cloudBands = [
-    { x: 0.2, y: 0.18, rx: 0.22, ry: 0.08, alpha: 0.16 },
-    { x: 0.72, y: 0.16, rx: 0.26, ry: 0.09, alpha: 0.14 },
-    { x: 0.45, y: 0.26, rx: 0.34, ry: 0.11, alpha: 0.10 }
+    { x: 0.2, y: 0.18, rx: 0.22, ry: 0.08, alpha: 0.12 },
+    { x: 0.72, y: 0.16, rx: 0.26, ry: 0.09, alpha: 0.1 },
+    { x: 0.45, y: 0.26, rx: 0.34, ry: 0.11, alpha: 0.08 }
   ];
 
   for (const band of cloudBands) {
@@ -203,7 +221,7 @@ const containerH = () => sceneContainer.clientHeight || window.innerHeight;
 
 const camera = new THREE.PerspectiveCamera(40, containerW() / containerH(), 0.5, 500);
 camera.position.set(30, 30, 66);
-camera.lookAt(0, 6, 0);
+camera.lookAt(0, 4.8, 0);
 
 // No view offset — flower is centered
 function applyViewOffset() {
@@ -215,7 +233,7 @@ let renderer;
 try {
   renderer = new THREE.WebGPURenderer({ antialias: true, alpha: true });
   renderer.setSize(containerW(), containerH());
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+  renderer.setPixelRatio(sceneMaxPixelRatio);
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1.0;
   renderer.shadowMap.enabled = true;
@@ -228,7 +246,7 @@ try {
   console.warn('WebGPU not available, falling back to WebGL:', e);
   renderer = new THREE.WebGPURenderer({ antialias: true, alpha: true, forceWebGL: true });
   renderer.setSize(containerW(), containerH());
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+  renderer.setPixelRatio(sceneMaxPixelRatio);
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1.0;
   renderer.shadowMap.enabled = true;
@@ -269,8 +287,10 @@ function syncThemeVisuals(variation) {
     previousMap.dispose?.();
   }
 
-  cloudSprites.forEach((cloud, index) => {
-    cloud.material.opacity = (variation === 1 ? 0.28 : variation === 2 ? 0.22 : 0.25) * (1 - index * 0.03);
+  cloudSprites.forEach((cloud) => {
+    const baseOpacity = cloud.userData.baseOpacity ?? 0.18;
+    const themeOpacityScale = variation === 1 ? 1.08 : variation === 2 ? 0.92 : 1;
+    cloud.material.opacity = baseOpacity * themeOpacityScale;
   });
 }
 
@@ -326,11 +346,14 @@ skySphere.name = 'visibleSkyDome';
 scene.add(skySphere);
 
 const cloudConfigs = [
-  { x: -34, y: 28, z: -78, scaleX: 42, scaleY: 15, bob: 0.7, opacity: 0.24 },
-  { x: -8, y: 34, z: -88, scaleX: 36, scaleY: 13, bob: 0.55, opacity: 0.20 },
-  { x: 24, y: 26, z: -76, scaleX: 46, scaleY: 16, bob: 0.62, opacity: 0.22 },
-  { x: 46, y: 18, z: -70, scaleX: 34, scaleY: 12, bob: 0.5, opacity: 0.18 },
-  { x: -46, y: 12, z: -64, scaleX: 30, scaleY: 11, bob: 0.48, opacity: 0.15 }
+  { x: -56, y: 34, z: -112, scaleX: 72, scaleY: 24, bob: 0.46, opacity: 0.2, driftX: 6.2, driftZ: 2.4, parallax: 5.5 },
+  { x: -22, y: 26, z: -98, scaleX: 58, scaleY: 20, bob: 0.52, opacity: 0.22, driftX: 5.4, driftZ: 2.0, parallax: 6.2 },
+  { x: 8, y: 36, z: -118, scaleX: 76, scaleY: 26, bob: 0.44, opacity: 0.18, driftX: 6.8, driftZ: 2.6, parallax: 5.2 },
+  { x: 42, y: 28, z: -92, scaleX: 62, scaleY: 21, bob: 0.58, opacity: 0.2, driftX: 5.8, driftZ: 1.8, parallax: 6.6 },
+  { x: 62, y: 18, z: -84, scaleX: 48, scaleY: 17, bob: 0.5, opacity: 0.18, driftX: 4.6, driftZ: 1.6, parallax: 7.2 },
+  { x: -42, y: 16, z: -80, scaleX: 44, scaleY: 15, bob: 0.56, opacity: 0.2, driftX: 4.9, driftZ: 1.5, parallax: 7.0 },
+  { x: 0, y: 12, z: -72, scaleX: 54, scaleY: 18, bob: 0.48, opacity: 0.16, driftX: 4.2, driftZ: 1.4, parallax: 7.8 },
+  { x: -70, y: 8, z: -74, scaleX: 40, scaleY: 14, bob: 0.42, opacity: 0.14, driftX: 3.8, driftZ: 1.2, parallax: 8.4 }
 ];
 
 cloudConfigs.forEach((config, index) => {
@@ -346,8 +369,12 @@ cloudConfigs.forEach((config, index) => {
   cloud.position.set(config.x, config.y, config.z);
   cloud.scale.set(config.scaleX, config.scaleY, 1);
   cloud.userData.basePosition = cloud.position.clone();
+  cloud.userData.baseOpacity = config.opacity;
   cloud.userData.bob = config.bob;
   cloud.userData.offset = index * 0.9;
+  cloud.userData.driftX = config.driftX;
+  cloud.userData.driftZ = config.driftZ;
+  cloud.userData.parallax = config.parallax;
   cloud.renderOrder = -20;
   scene.add(cloud);
   cloudSprites.push(cloud);
@@ -357,14 +384,16 @@ syncThemeVisuals(0);
 
 // Lazy-load HDR for higher quality (non-blocking, replaces procedural env when ready)
 const rgbeLoader = new RGBELoader();
-requestIdle(() => {
-  rgbeLoader.load('https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/1k/kloofendal_48d_partly_cloudy_puresky_1k.hdr', (texture) => {
-    texture.mapping = THREE.EquirectangularReflectionMapping;
-    if (scene.environment) scene.environment.dispose();
-    scene.environment = texture;
-    console.log('HDR environment loaded (deferred)');
-  });
-}, { timeout: 3000 });
+if (!shouldUseLiteScene && !navigator.connection?.saveData) {
+  requestIdle(() => {
+    rgbeLoader.load('https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/1k/kloofendal_48d_partly_cloudy_puresky_1k.hdr', (texture) => {
+      texture.mapping = THREE.EquirectangularReflectionMapping;
+      if (scene.environment) scene.environment.dispose();
+      scene.environment = texture;
+      console.log('HDR environment loaded (deferred)');
+    });
+  }, { timeout: 3000 });
+}
 
 
 
@@ -944,7 +973,7 @@ Object.entries(grassTopMap).forEach(([key, topY]) => {
 buildInstancedMeshes();
 
 // === INSTANCE DATA — must be populated before variation generators ===
-const instanceData = new Map(); // InstancedMesh -> { origPositions, offsets, randDirs, count }
+const instanceData = new Map(); // InstancedMesh -> { origPositions, offsets, randDirs, quaternions, scales, count }
 const _islandBBox = new THREE.Box3();
 
 {
@@ -955,12 +984,21 @@ const _islandBBox = new THREE.Box3();
     const orig = new Float32Array(count * 3);
     const offsets = new Float32Array(count * 3);
     const randDirs = new Float32Array(count * 3);
+    const quaternions = new Float32Array(count * 4);
+    const scales = new Float32Array(count * 3);
     for (let i = 0; i < count; i++) {
       im.getMatrixAt(i, mat4);
       mat4.decompose(dummy.position, dummy.quaternion, dummy.scale);
       orig[i * 3] = dummy.position.x;
       orig[i * 3 + 1] = dummy.position.y;
       orig[i * 3 + 2] = dummy.position.z;
+      quaternions[i * 4] = dummy.quaternion.x;
+      quaternions[i * 4 + 1] = dummy.quaternion.y;
+      quaternions[i * 4 + 2] = dummy.quaternion.z;
+      quaternions[i * 4 + 3] = dummy.quaternion.w;
+      scales[i * 3] = dummy.scale.x;
+      scales[i * 3 + 1] = dummy.scale.y;
+      scales[i * 3 + 2] = dummy.scale.z;
       _islandBBox.expandByPoint(dummy.position);
 
       const theta = Math.random() * Math.PI * 2;
@@ -969,7 +1007,7 @@ const _islandBBox = new THREE.Box3();
       randDirs[i * 3 + 1] = Math.sin(phi) * Math.sin(theta);
       randDirs[i * 3 + 2] = Math.cos(phi);
     }
-    instanceData.set(im, { origPositions: orig, offsets, randDirs, count });
+    instanceData.set(im, { origPositions: orig, offsets, randDirs, quaternions, scales, count });
   });
   _islandBBox.expandByScalar(3.0);
 }
@@ -1287,7 +1325,8 @@ function updateMorph() {
   const toSnap = variationData[morphTo];
   const autumnSnap = variationData[0]; // use autumn (base) positions for stable stagger
   const dummy = new THREE.Object3D();
-  const mat4tmp = new THREE.Matrix4();
+  const baseQuaternion = new THREE.Quaternion();
+  const baseScale = new THREE.Vector3();
 
   const _morphColor = new THREE.Color();
   voxels.forEach(im => {
@@ -1332,9 +1371,16 @@ function updateMorph() {
       const offY = data.offsets[i3 + 1];
       const offZ = data.offsets[i3 + 2];
 
-      im.getMatrixAt(i, mat4tmp);
-      mat4tmp.decompose(dummy.position, dummy.quaternion, dummy.scale);
+      baseQuaternion.set(
+        data.quaternions[i * 4],
+        data.quaternions[i * 4 + 1],
+        data.quaternions[i * 4 + 2],
+        data.quaternions[i * 4 + 3]
+      );
+      baseScale.set(data.scales[i * 3], data.scales[i * 3 + 1], data.scales[i * 3 + 2]);
       dummy.position.set(nx + offX, ny + offY, nz + offZ);
+      dummy.quaternion.copy(baseQuaternion);
+      dummy.scale.copy(baseScale);
       dummy.updateMatrix();
       im.setMatrixAt(i, dummy.matrix);
 
@@ -1425,7 +1471,7 @@ dustPoints.frustumCulled = false;
 particleGroup.add(dustPoints);
 
 // Falling leaves — small billboard quads using InstancedMesh
-const fallingLeafCount = 40;
+const fallingLeafCount = activeFallingLeafCount;
 const leafQuadGeo = new THREE.PlaneGeometry(0.5, 0.5);
 const leafQuadMat = new THREE.MeshBasicNodeMaterial({
   transparent: true,
@@ -1585,6 +1631,19 @@ const hitSmoothSpeed = 12.0; // how fast the smoothed point tracks the raw hit
 // Use a plane at the island center for stable raycasting (no flickering from displaced voxels)
 const _bboxCenter = new THREE.Vector3();
 _islandBBox.getCenter(_bboxCenter);
+const _bboxCorners = [
+  new THREE.Vector3(_islandBBox.min.x, _islandBBox.min.y, _islandBBox.min.z),
+  new THREE.Vector3(_islandBBox.min.x, _islandBBox.min.y, _islandBBox.max.z),
+  new THREE.Vector3(_islandBBox.min.x, _islandBBox.max.y, _islandBBox.min.z),
+  new THREE.Vector3(_islandBBox.min.x, _islandBBox.max.y, _islandBBox.max.z),
+  new THREE.Vector3(_islandBBox.max.x, _islandBBox.min.y, _islandBBox.min.z),
+  new THREE.Vector3(_islandBBox.max.x, _islandBBox.min.y, _islandBBox.max.z),
+  new THREE.Vector3(_islandBBox.max.x, _islandBBox.max.y, _islandBBox.min.z),
+  new THREE.Vector3(_islandBBox.max.x, _islandBBox.max.y, _islandBBox.max.z),
+];
+const _projectedCueCenter = new THREE.Vector3();
+const _projectedBBoxPoint = new THREE.Vector3();
+const scrollCueGap = 10;
 const _rayPlane = new THREE.Plane();
 const _planeIntersect = new THREE.Vector3();
 
@@ -1616,13 +1675,15 @@ const _hitPoint = new THREE.Vector3();
 const _dir = new THREE.Vector3();
 const _pos = new THREE.Vector3();
 const _dummy = new THREE.Object3D();
-const _mat4 = new THREE.Matrix4();
+const _baseQuaternion = new THREE.Quaternion();
+const _baseScale = new THREE.Vector3();
 let hasHit = false;
 
 function updateRepulsion(dt) {
   const now = performance.now();
   const mouseIdle = (now - lastMouseMoveTime) / 1000 > mouseIdleTimeout;
   impactBoost = Math.max(0, impactBoost - dt * 1.9);
+  const pulseTime = now;
 
   // Raycast onto a camera-facing plane through the island center — always stable
   raycaster.setFromCamera(mouse, camera);
@@ -1659,7 +1720,7 @@ function updateRepulsion(dt) {
   voxels.forEach(im => {
     const data = instanceData.get(im);
     if (!data) return;
-    const { origPositions, offsets, randDirs, count } = data;
+    const { origPositions, offsets, randDirs, quaternions, scales, count } = data;
     let needsUpdate = false;
 
     for (let i = 0; i < count; i++) {
@@ -1681,7 +1742,6 @@ function updateRepulsion(dt) {
 
           // Breathing pulse — gentle sine wave that varies per-voxel for organic feel
           const pulsePhase = (ox * 1.3 + oy * 0.7 + oz * 1.1);
-          const pulseTime = performance.now();
           const pulseAmount = Math.sin(pulseTime * 0.003 + pulsePhase) * 0.15 + Math.sin(pulseTime * 0.0017 + pulsePhase * 0.6) * 0.1;
           const breathScale = 1.0 + pulseAmount * falloff;
 
@@ -1719,11 +1779,16 @@ function updateRepulsion(dt) {
         offsets[i * 3] = newX;
         offsets[i * 3 + 1] = newY;
         offsets[i * 3 + 2] = newZ;
-
-        // Get original matrix to preserve rotation/scale
-        im.getMatrixAt(i, _mat4);
-        _mat4.decompose(_dummy.position, _dummy.quaternion, _dummy.scale);
+        _baseQuaternion.set(
+          quaternions[i * 4],
+          quaternions[i * 4 + 1],
+          quaternions[i * 4 + 2],
+          quaternions[i * 4 + 3]
+        );
+        _baseScale.set(scales[i * 3], scales[i * 3 + 1], scales[i * 3 + 2]);
         _dummy.position.set(ox + newX, oy + newY, oz + newZ);
+        _dummy.quaternion.copy(_baseQuaternion);
+        _dummy.scale.copy(_baseScale);
         _dummy.updateMatrix();
         im.setMatrixAt(i, _dummy.matrix);
         needsUpdate = true;
@@ -1732,10 +1797,16 @@ function updateRepulsion(dt) {
         offsets[i * 3] = newX;
         offsets[i * 3 + 1] = newY;
         offsets[i * 3 + 2] = newZ;
-
-        im.getMatrixAt(i, _mat4);
-        _mat4.decompose(_dummy.position, _dummy.quaternion, _dummy.scale);
+        _baseQuaternion.set(
+          quaternions[i * 4],
+          quaternions[i * 4 + 1],
+          quaternions[i * 4 + 2],
+          quaternions[i * 4 + 3]
+        );
+        _baseScale.set(scales[i * 3], scales[i * 3 + 1], scales[i * 3 + 2]);
         _dummy.position.set(ox + newX, oy + newY, oz + newZ);
+        _dummy.quaternion.copy(_baseQuaternion);
+        _dummy.scale.copy(_baseScale);
         _dummy.updateMatrix();
         im.setMatrixAt(i, _dummy.matrix);
         needsUpdate = true;
@@ -1764,8 +1835,8 @@ const mainLight = new THREE.DirectionalLight(0xfff5e0, 2.5);
 mainLight.name = 'mainLight';
 mainLight.position.set(6, 14, 5);
 mainLight.castShadow = true;
-mainLight.shadow.mapSize.width = 2048;
-mainLight.shadow.mapSize.height = 2048;
+mainLight.shadow.mapSize.width = primaryShadowMapSize;
+mainLight.shadow.mapSize.height = primaryShadowMapSize;
 mainLight.shadow.camera.near = 0.5;
 mainLight.shadow.camera.far = 40;
 mainLight.shadow.camera.left = -32;
@@ -1783,8 +1854,8 @@ const softShadowLight = new THREE.DirectionalLight(0xffeedd, 0.6);
 softShadowLight.name = 'softShadowLight';
 softShadowLight.position.set(-3, 8, 6);
 softShadowLight.castShadow = true;
-softShadowLight.shadow.mapSize.width = 512;
-softShadowLight.shadow.mapSize.height = 512;
+softShadowLight.shadow.mapSize.width = secondaryShadowMapSize;
+softShadowLight.shadow.mapSize.height = secondaryShadowMapSize;
 softShadowLight.shadow.camera.near = 0.5;
 softShadowLight.shadow.camera.far = 30;
 softShadowLight.shadow.camera.left = -24;
@@ -1821,25 +1892,42 @@ controls.dampingFactor = 0.05;
 controls.minDistance = 2;
 controls.maxDistance = 500;
 controls.enablePan = false;
-controls.target.set(0, 6, 0);
+controls.target.set(0, 4.8, 0);
 
 let userIsInteracting = false;
+let persistUserView = false;
+const persistedCameraPosition = camera.position.clone();
+const persistedTarget = controls.target.clone();
+
 controls.addEventListener('start', () => {
   userIsInteracting = true;
 });
 controls.addEventListener('end', () => {
+  persistedCameraPosition.copy(camera.position);
+  persistedTarget.copy(controls.target);
+  persistUserView = true;
   window.setTimeout(() => {
     userIsInteracting = false;
   }, 160);
 });
 
 const heroTrack = document.querySelector('[data-scroll-track]');
+const heroSection = document.querySelector('.hero-section.home-hero');
 const scrollState = { progress: 0, targetProgress: 0 };
 const backgroundState = { x: 0, y: 0, targetX: 0, targetY: 0 };
 const baseCameraPosition = camera.position.clone();
 const scrollCameraPosition = baseCameraPosition.clone();
 const baseTarget = controls.target.clone();
 const scrollTarget = baseTarget.clone();
+
+function isHeroSectionVisible() {
+  if (!heroSection) {
+    return false;
+  }
+
+  const rect = heroSection.getBoundingClientRect();
+  return rect.bottom > 0 && rect.top < window.innerHeight && rect.width > 0 && rect.height > 0;
+}
 
 function updateScrollProgress() {
   const maxScroll = heroTrack
@@ -1882,8 +1970,8 @@ try {
   if (ao) {
     try {
       aoPass = ao(scenePassDepth, scenePassNormal, camera);
-      aoPass.resolutionScale = 1.0;
-      aoPass.samples.value = 16;
+      aoPass.resolutionScale = shouldUseLiteScene ? 0.7 : 1.0;
+      aoPass.samples.value = shouldUseLiteScene ? 8 : 16;
       aoPass.radius.value = 0.60;
       aoPass.distanceExponent.value = 1.0;
       aoPass.thickness.value = 1.60;
@@ -1941,10 +2029,10 @@ try {
     try {
       // SSR signature: ssr(color, depth, normal, metalness, roughness, camera)
       ssrPass = ssrModule.ssr(scenePassColor, scenePassDepth, scenePassNormal, scenePassMetalness, scenePassRoughness, camera);
-      ssrPass.resolutionScale = 0.25;
+      ssrPass.resolutionScale = shouldUseLiteScene ? 0.15 : 0.25;
       ssrPass.thickness.value = 0.2;
       ssrPass.maxDistance.value = 4.0;
-      ssrPass.samples = 4;
+      ssrPass.samples = shouldUseLiteScene ? 2 : 4;
 
       const ssrTexture = ssrPass.getTextureNode();
 
@@ -2031,7 +2119,7 @@ try {
 }
 
 // Adaptive quality — reduce samples/resolution when camera is close to prevent slowdown
-const aoBaseSettings = { samples: 16, radius: 0.60 };
+const aoBaseSettings = { samples: shouldUseLiteScene ? 8 : 16, radius: 0.60 };
 const AO_NEAR_DIST = 3;   // below this distance, start reducing quality
 const AO_FAR_DIST = 8;    // above this, full quality
 let lastAdaptiveDist = -1; // avoid redundant updates
@@ -2068,9 +2156,40 @@ function updateAdaptiveQuality() {
   }
 
   // --- Adaptive pixel ratio (downscale when very close) ---
-  const maxDPR = Math.min(window.devicePixelRatio, 1.5);
+  const maxDPR = sceneMaxPixelRatio;
   const adaptiveDPR = Math.max(1, maxDPR * (0.75 + 0.25 * s)); // 75%-100% of maxDPR
   renderer.setPixelRatio(adaptiveDPR);
+}
+
+function updateScrollCuePlacement() {
+  const cueEl = document.querySelector('.home-hero__scroll-cue');
+  if (!cueEl) return;
+  if (!isHeroSectionVisible()) {
+    cueEl.style.opacity = '0';
+    cueEl.style.visibility = 'hidden';
+    return;
+  }
+
+  cueEl.style.opacity = '1';
+  cueEl.style.visibility = 'visible';
+
+  _projectedCueCenter.copy(_bboxCenter).project(camera);
+  const cueCenterX = (_projectedCueCenter.x * 0.5 + 0.5) * containerW();
+
+  let flowerBottomY = -Infinity;
+  for (const corner of _bboxCorners) {
+    _projectedBBoxPoint.copy(corner).project(camera);
+    const screenY = (-_projectedBBoxPoint.y * 0.5 + 0.5) * containerH();
+    if (Number.isFinite(screenY)) {
+      flowerBottomY = Math.max(flowerBottomY, screenY);
+    }
+  }
+
+  if (!Number.isFinite(flowerBottomY)) return;
+
+  const cueTop = Math.min(Math.max(flowerBottomY + scrollCueGap, 24), containerH() - 120);
+  rootStyle.setProperty('--hero-scroll-cue-left', `${cueCenterX.toFixed(1)}px`);
+  rootStyle.setProperty('--hero-scroll-cue-top', `${cueTop.toFixed(1)}px`);
 }
 
 // FPS counter
@@ -2119,7 +2238,20 @@ function animate() {
   rootStyle.setProperty('--home-sky-mid-live', `#${skyMidLive.getHexString()}`);
   rootStyle.setProperty('--home-sky-bottom-live', theme.bottom);
 
-  if (!userIsInteracting) {
+  const heroIsVisible = isHeroSectionVisible();
+
+  if (!heroIsVisible && persistUserView) {
+    persistUserView = false;
+    persistedCameraPosition.copy(baseCameraPosition);
+    persistedTarget.copy(baseTarget);
+    camera.position.copy(baseCameraPosition);
+    controls.target.copy(baseTarget);
+  }
+
+  if (!userIsInteracting && persistUserView) {
+    camera.position.copy(persistedCameraPosition);
+    controls.target.copy(persistedTarget);
+  } else if (!userIsInteracting) {
     camera.position.lerpVectors(baseCameraPosition, scrollCameraPosition, scrollEase);
     controls.target.lerpVectors(baseTarget, scrollTarget, scrollEase);
   }
@@ -2127,13 +2259,20 @@ function animate() {
   const cloudTime = now2 * 0.00008;
   cloudSprites.forEach((cloud, index) => {
     const basePosition = cloud.userData.basePosition;
-    cloud.position.x = basePosition.x + Math.sin(cloudTime + cloud.userData.offset) * 4 + backgroundState.x * (8 + index);
-    cloud.position.y = basePosition.y + Math.cos(cloudTime * 1.3 + cloud.userData.offset) * cloud.userData.bob + backgroundState.y * 2.5;
-    cloud.position.z = basePosition.z + Math.sin(cloudTime * 0.55 + cloud.userData.offset) * 1.5;
-    cloud.material.opacity = Math.max(0.08, (activeThemeIndex === 1 ? 0.28 : activeThemeIndex === 2 ? 0.22 : 0.25) * (1 - index * 0.03) * (1 - scrollEase * 0.35));
+    const driftX = cloud.userData.driftX ?? 4;
+    const driftZ = cloud.userData.driftZ ?? 1.5;
+    const parallax = cloud.userData.parallax ?? (8 + index);
+    const baseOpacity = cloud.userData.baseOpacity ?? 0.18;
+    const themeOpacityScale = activeThemeIndex === 1 ? 1.08 : activeThemeIndex === 2 ? 0.92 : 1;
+
+    cloud.position.x = basePosition.x + Math.sin(cloudTime + cloud.userData.offset) * driftX + backgroundState.x * parallax;
+    cloud.position.y = basePosition.y + Math.cos(cloudTime * 1.3 + cloud.userData.offset) * cloud.userData.bob + backgroundState.y * 2.4;
+    cloud.position.z = basePosition.z + Math.sin(cloudTime * 0.55 + cloud.userData.offset) * driftZ;
+    cloud.material.opacity = Math.max(0.08, baseOpacity * themeOpacityScale * (1 - scrollEase * 0.32));
   });
 
   controls.update();
+  updateScrollCuePlacement();
   updateAdaptiveQuality();
   updateMorph();
   updateRepulsion(dt);
@@ -2147,15 +2286,27 @@ function animate() {
 renderer.setAnimationLoop(animate);
 
 // Resize
-window.addEventListener('resize', () => {
+function handleResize() {
   camera.aspect = containerW() / containerH();
   camera.updateProjectionMatrix();
   applyViewOffset();
   renderer.setSize(containerW(), containerH());
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+  renderer.setPixelRatio(sceneMaxPixelRatio);
   lastAdaptiveDist = -1; // force adaptive recalc
   updateScrollProgress();
-});
+  updateScrollCuePlacement();
+}
+
+window.addEventListener('resize', handleResize);
+
+window.__homeHeroSceneCleanup = () => {
+  renderer.setAnimationLoop(null);
+  window.removeEventListener('scroll', updateScrollProgress);
+  window.removeEventListener('resize', handleResize);
+  controls.dispose();
+  renderer.domElement.remove();
+  renderer.dispose();
+};
 
 // === UI Bindings ===
 function bindRange(id, valId, callback) {

@@ -1,6 +1,10 @@
 import Image from "next/image";
 import Link from "next/link";
 
+function EntryTag({ children }: { children: React.ReactNode }) {
+  return <span className="blinkit-entry-card__tag">[{children}]</span>;
+}
+
 function EntryPhone({
   src,
   alt,
@@ -51,23 +55,27 @@ export default function BlinkitEntryCard() {
       </div>
 
       <div className="blinkit-entry-card__content">
-        <Image
-          src="/assets/Blinkit-logo.png"
-          alt="Blinkit"
-          width={204}
-          height={54}
-          className="blinkit-entry-card__logo"
-        />
-        <h2 className="blinkit-entry-card__title">Designing a Scalable IPL Engagement System</h2>
-        <p className="blinkit-entry-card__summary">
-          A modular IPL case study across merchandising, gamified engagement,
-          and brand partnerships, designed to scale across match-day moments
-          without losing Blinkit&apos;s utility-first feel.
-        </p>
-        <span className="blinkit-entry-card__cta">
-          View case study
-          <span aria-hidden="true">↗</span>
-        </span>
+        <div className="blinkit-entry-card__content-frame">
+          <div className="blinkit-entry-card__intro">
+            <Image
+              src="/assets/Blinkit-logo.png"
+              alt="Blinkit"
+              width={204}
+              height={54}
+              className="blinkit-entry-card__logo"
+            />
+            <p className="blinkit-entry-card__meta">COMPANY: [QUICK-COMMERCE]</p>
+          </div>
+
+          <div className="blinkit-entry-card__body">
+            <h2 className="blinkit-entry-card__title">Designing a Scalable IPL Engagement System</h2>
+            <div className="blinkit-entry-card__tags" aria-label="Project tags">
+              <EntryTag>Product thinking</EntryTag>
+              <EntryTag>visual</EntryTag>
+              <EntryTag>Motion</EntryTag>
+            </div>
+          </div>
+        </div>
       </div>
     </Link>
   );

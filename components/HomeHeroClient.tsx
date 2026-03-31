@@ -23,6 +23,14 @@ export default function HomeHeroClient() {
     const importMapId = "home-hero-importmap";
     const sceneScriptId = "home-hero-scene-script";
     let bootToken = 0;
+    const sceneWindow = window as Window & {
+      __homeHeroSceneCleanup?: () => void;
+    };
+
+    const teardownScene = () => {
+      sceneWindow.__homeHeroSceneCleanup?.();
+      delete sceneWindow.__homeHeroSceneCleanup;
+    };
 
     const ensureImportMap = () => {
       if (document.getElementById(importMapId)) {
@@ -42,10 +50,14 @@ export default function HomeHeroClient() {
         return;
       }
 
-      if (root.querySelector("canvas")) {
+      const hasCanvas = Boolean(root.querySelector("canvas"));
+      const hasLiveScene = typeof sceneWindow.__homeHeroSceneCleanup === "function";
+
+      if (hasCanvas && hasLiveScene) {
         return;
       }
 
+      teardownScene();
       ensureImportMap();
       document.getElementById(sceneScriptId)?.remove();
       root.replaceChildren();
@@ -79,6 +91,7 @@ export default function HomeHeroClient() {
       window.removeEventListener("pageshow", handlePageShow);
       window.removeEventListener("focus", handlePageShow);
       document.removeEventListener("visibilitychange", handleVisibility);
+      teardownScene();
       document.getElementById(sceneScriptId)?.remove();
       document.getElementById(importMapId)?.remove();
     };
@@ -110,11 +123,6 @@ export default function HomeHeroClient() {
           ))}
         </div>
 
-        <div className="home-hero__scroll-cue" aria-hidden="true">
-          <span className="home-hero__scroll-text">Scroll to view work</span>
-          <span className="home-hero__scroll-line" />
-          <span className="home-hero__scroll-dot" />
-        </div>
       </section>
     </div>
   );
