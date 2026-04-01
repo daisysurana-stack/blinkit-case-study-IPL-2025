@@ -1,6 +1,5 @@
 import FolderTile3D from "@/components/FolderTile3D";
 import BlinkitEntryCard from "@/components/BlinkitEntryCard";
-import SecondaryCaseStudyEntryCard from "@/components/SecondaryCaseStudyEntryCard";
 import HomeHero from "@/components/HomeHero";
 
 export default function HomePage() {
@@ -13,6 +12,16 @@ export default function HomePage() {
           <section className="home-featured-case" aria-label="Featured case study">
             <div className="home-featured-case__glass" />
             <BlinkitEntryCard />
+          </section>
+
+          <section className="home-featured-case home-featured-case--secondary" aria-label="Additional featured case study">
+            <div className="home-featured-case__glass" />
+            <BlinkitEntryCard
+              href="/case-study/snatchwars"
+              ariaLabel="Open nostalgia-driven play case study"
+              titleLineOne="Designing nostalgia-driven play"
+              titleLineTwo="for 260,000 siblings."
+            />
           </section>
 
           <svg className="orbit-mark" viewBox="0 0 200 200" aria-hidden="true">
@@ -40,13 +49,6 @@ export default function HomePage() {
                 />
 
                 <FolderTile3D
-                  coverImageSrc="/assets/folder-case-study-cover.png"
-                  coverImageAlt="Forever Future Rakhi case study folder cover"
-                  href="/case-study/snatchwars"
-                  hoverType="caseStudy"
-                />
-
-                <FolderTile3D
                   coverImageSrc="/assets/folder-motion-cover.png"
                   coverImageAlt="Motion archive folder cover"
                   href="/interest"
@@ -58,13 +60,6 @@ export default function HomePage() {
                 A selection of product systems, experiments, and motion-led
                 narratives.
               </p>
-            </section>
-
-            <section
-              className="works-entrypoint works-entrypoint--secondary"
-              aria-label="Forever Future Rakhi case study entry"
-            >
-              <SecondaryCaseStudyEntryCard />
             </section>
           </div>
         </section>
