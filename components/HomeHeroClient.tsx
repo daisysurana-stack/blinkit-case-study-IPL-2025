@@ -1,12 +1,28 @@
 "use client";
 
-import { useEffect } from "react";
+import Image from "next/image";
+import { useEffect, useState } from "react";
 
 const variations = [
   { key: 0, label: "White Daisy" },
   { key: 1, label: "Frost Daisy" },
   { key: 2, label: "Pink Daisy" }
 ];
+
+const themeCopy = {
+  0: {
+    heading: "Visual & Motion Designer at Blinkit",
+    subheading: "I build things that look crafted and work at scale"
+  },
+  1: {
+    heading: "3 years shipping motion-first product design",
+    subheading: "Systems thinker. Figma archaeologist. QC until midnight"
+  },
+  2: {
+    heading: "Currently making a grocery app feel like a game",
+    subheading: "Open to what comes next"
+  }
+} as const;
 
 const importMap = {
   imports: {
@@ -19,6 +35,8 @@ const importMap = {
 };
 
 export default function HomeHeroClient() {
+  const [activeTheme, setActiveTheme] = useState<0 | 1 | 2>(0);
+
   useEffect(() => {
     const importMapId = "home-hero-importmap";
     const sceneScriptId = "home-hero-scene-script";
@@ -97,11 +115,53 @@ export default function HomeHeroClient() {
     };
   }, []);
 
+  const copy = themeCopy[activeTheme];
+
   return (
     <div className="hero-shell" data-scroll-track>
       <section className="home-hero hero-section" aria-label="Landing screen">
+        <header className="home-top-nav" aria-label="Primary">
+          <div className="home-top-nav__inner">
+            <div className="home-top-nav__zone home-top-nav__zone--left">
+              <a className="home-top-nav__logo" href="/" aria-label="Daisy Surana home">
+                <Image
+                  src="/assets/Daisy Logo.png"
+                  alt="Daisy Surana"
+                  width={133}
+                  height={36}
+                  className="home-top-nav__logo-image"
+                  priority
+                />
+              </a>
+            </div>
+
+            <div className="home-top-nav__zone home-top-nav__zone--center" aria-hidden="true" />
+
+            <div className="home-top-nav__zone home-top-nav__zone--right">
+              <nav className="home-top-nav__links" aria-label="Section navigation">
+                <a className="home-top-nav__link" href="#about">
+                  ABOUT
+                </a>
+                <a className="home-top-nav__link" href="#work">
+                  WORKS
+                </a>
+                <a className="home-top-nav__link" href="/contact">
+                  CONTACT
+                </a>
+              </nav>
+            </div>
+          </div>
+        </header>
+
         <div className="hero-scene home-hero__scene" aria-hidden="true">
           <div id="root" className="home-hero__root" />
+        </div>
+
+        <div className="home-hero__text-overlay" aria-hidden="true">
+          <div className="home-hero__theme-copy" key={activeTheme}>
+            <p className="home-hero__theme-copy-heading">{copy.heading}</p>
+            <p className="home-hero__theme-copy-subheading">{copy.subheading}</p>
+          </div>
         </div>
 
         <div
@@ -110,15 +170,17 @@ export default function HomeHeroClient() {
           aria-hidden="true"
         />
 
-        <div id="variation-bar" className="home-hero__variation-bar">
-          {variations.map((variation, index) => (
+        <div id="variation-bar" className="home-hero__variation-bar" aria-label="Theme selection">
+          {variations.map((variation) => (
             <button
               key={variation.label}
               type="button"
-              className={`morph-btn${index === 0 ? " active" : ""}`}
+              className={`morph-btn${activeTheme === variation.key ? " active" : ""}`}
               data-variation={variation.key}
+              aria-pressed={activeTheme === variation.key}
+              onClick={() => setActiveTheme(variation.key as 0 | 1 | 2)}
             >
-              {variation.label}
+              {variation.label.toUpperCase()}
             </button>
           ))}
         </div>

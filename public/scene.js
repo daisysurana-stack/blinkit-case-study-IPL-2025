@@ -1643,7 +1643,6 @@ const _bboxCorners = [
 ];
 const _projectedCueCenter = new THREE.Vector3();
 const _projectedBBoxPoint = new THREE.Vector3();
-const scrollCueGap = 10;
 const _rayPlane = new THREE.Plane();
 const _planeIntersect = new THREE.Vector3();
 
@@ -2172,24 +2171,6 @@ function updateScrollCuePlacement() {
 
   cueEl.style.opacity = '1';
   cueEl.style.visibility = 'visible';
-
-  _projectedCueCenter.copy(_bboxCenter).project(camera);
-  const cueCenterX = (_projectedCueCenter.x * 0.5 + 0.5) * containerW();
-
-  let flowerBottomY = -Infinity;
-  for (const corner of _bboxCorners) {
-    _projectedBBoxPoint.copy(corner).project(camera);
-    const screenY = (-_projectedBBoxPoint.y * 0.5 + 0.5) * containerH();
-    if (Number.isFinite(screenY)) {
-      flowerBottomY = Math.max(flowerBottomY, screenY);
-    }
-  }
-
-  if (!Number.isFinite(flowerBottomY)) return;
-
-  const cueTop = Math.min(Math.max(flowerBottomY + scrollCueGap, 24), containerH() - 120);
-  rootStyle.setProperty('--hero-scroll-cue-left', `${cueCenterX.toFixed(1)}px`);
-  rootStyle.setProperty('--hero-scroll-cue-top', `${cueTop.toFixed(1)}px`);
 }
 
 // FPS counter
